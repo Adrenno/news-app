@@ -1,6 +1,7 @@
 from collector import fetch_feed
+from processor import normalize_article, deduplicate_articles
 from sources import SOURCES
-
+from ranking import rank_articles
 
 def main():
     all_articles = []
@@ -9,16 +10,45 @@ def main():
         print(f"Fetching {source['name']}...")
 
         articles = fetch_feed(source)
-        all_articles.extend(articles)
 
         print(f"  Found {len(articles)} articles.")
 
-    print(f"\nTotal articles: {len(all_articles)}\n")
+        all_articles.extend(articles)
 
-    for article in all_articles[:10]:
-        print(f"[{article['category'].upper()}] {article['title']}")
-        print(f"Source: {article['source']}")
-        print(article["url"])
+    print(f"\nRaw articles: {len(all_articles)}")
+
+    normalized_articles = [
+        normalize_article(article)
+        for article in all_articles
+    ]
+
+    unique_articles = deduplicate_articles(normalized_articles)
+
+    print(f"Unique articles: {len(unique_articles)}\n")
+
+    ranked_articles = rank_articles(unique_articles)
+
+    print("\nTop articles:\n")
+
+    for article in ranked_articles[:10]:
+    
+        score = article["score"]
+    
+        print(
+            f"[{score['total']:.0f}] "
+            f"[{article['category'].upper()}] "
+            f"{article['title']}"
+        )
+    
+        print(
+            f"  Recency:  {score['recency']}"
+            f" | Category: {score['category']}"
+            f" | Keywords: {score['keywords']}"
+            f" | Source: {score['source']}"
+        )
+    
+        print(f"  Source: {article['source']}")
+        print(f"  {article['url']}")
         print()
 
 
