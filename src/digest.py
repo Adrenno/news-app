@@ -1,6 +1,7 @@
 from html import unescape
 import re
 
+MINIMUM_DIGEST_SCORE = 12
 
 # ------------------------------------------------------------
 # CATEGORY DISPLAY
@@ -70,6 +71,17 @@ def group_by_category(articles: list[dict]) -> dict:
         grouped[category].append(article)
 
     return grouped
+
+def filter_important_articles(
+    articles: list[dict],
+) -> list[dict]:
+    """Keep only articles worth including in a digest."""
+
+    return [
+        article
+        for article in articles
+        if article["score"]["total"] >= MINIMUM_DIGEST_SCORE
+    ]
 
 def generate_digest(
     articles: list[dict],

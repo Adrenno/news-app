@@ -36,6 +36,13 @@ def initialize_database():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS digests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     connection.commit()
     connection.close()
 
@@ -116,6 +123,65 @@ def get_recent_articles(hours: int = 3):
     """, (f"-{hours} hours",))
 
     articles = [dict(row) for row in cursor.fetchall()]
+
+    connection.close()
+
+    return articles
+
+def create_digest_record():
+    """Record that a digest was generated."""
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        INSERT INTO digests DEFAULT VALUES
+    """)
+
+    connection.commit()
+    connection.close()
+
+def get_last_digest_time():
+    """Return the timestamp of the most recent digest."""
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT created_at
+        FROM digests
+        ORDER BY created_at DESC
+        LIMIT 1
+    """)
+
+    result = cursor.fetchone()
+
+    connection.close()
+
+    if result is None:
+        return None
+
+    return result[0]
+
+def get_articles_since(timestamp: str):
+    """Return articles discovered since a given timestamp."""
+
+    connection = get_connection()
+    connection.row_factory = sqlite3.Row
+
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM articles
+        WHERE created_at > ?
+        ORDER BY score DESC
+    """, (timestamp,))
+
+    articles = [
+        dict(row)
+        for row in cursor.fetchall()
+    ]
 
     connection.close()
 

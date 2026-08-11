@@ -5,12 +5,17 @@ from ranking import rank_articles
 from database import (
     initialize_database,
     save_articles,
+    create_digest_record,
+    get_last_digest_time,
+    get_articles_since,
 )
-from digest import generate_digest
-
-initialize_database()
+from digest import (
+    generate_digest,
+    filter_important_articles,
+)
 
 def main():
+    initialize_database()
     all_articles = []
 
     for source in SOURCES:
@@ -37,9 +42,35 @@ def main():
 
     save_articles(ranked_articles)
 
-    digest = generate_digest(ranked_articles)
+    last_digest = get_last_digest_time()
 
-    print(digest)
+    if last_digest is None:
+        articles_for_digest = ranked_articles
+    else:
+        articles_for_digest = get_articles_since(
+            last_digest
+        )
+
+    important_articles = filter_important_articles(
+        articles_for_digest
+    )
+
+    if important_articles:
+        digest = generate_digest(
+            important_articles
+        )
+
+        print(digest)
+
+        create_digest_record()
+
+    else:
+        print(
+            "\nNo important news since your "
+            "last digest."
+        )
+
+        create_digest_record()
 
 
 if __name__ == "__main__":
