@@ -1,0 +1,1 @@
+print("News app is alive.")
