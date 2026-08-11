@@ -6,6 +6,7 @@ from database import (
     initialize_database,
     save_articles,
 )
+from digest import generate_digest
 
 initialize_database()
 
@@ -36,28 +37,9 @@ def main():
 
     save_articles(ranked_articles)
 
-    print("\nTop articles:\n")
+    digest = generate_digest(ranked_articles)
 
-    for article in ranked_articles[:10]:
-    
-        score = article["score"]
-    
-        print(
-            f"[{score['total']:.0f}] "
-            f"[{article['category'].upper()}] "
-            f"{article['title']}"
-        )
-    
-        print(
-            f"  Recency:  {score['recency']}"
-            f" | Category: {score['category']}"
-            f" | Keywords: {score['keywords']}"
-            f" | Source: {score['source']}"
-        )
-    
-        print(f"  Source: {article['source']}")
-        print(f"  {article['url']}")
-        print()
+    print(digest)
 
 
 if __name__ == "__main__":

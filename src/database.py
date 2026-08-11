@@ -48,7 +48,7 @@ def save_articles(articles: list[dict]):
     for article in articles:
 
         cursor.execute("""
-            INSERT OR IGNORE INTO articles (
+            INSERT INTO articles (
                 title,
                 url,
                 published,
@@ -58,6 +58,14 @@ def save_articles(articles: list[dict]):
                 score
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
+
+            ON CONFLICT(url) DO UPDATE SET
+                title = excluded.title,
+                published = excluded.published,
+                summary = excluded.summary,
+                source = excluded.source,
+                category = excluded.category,
+                score = excluded.score
         """, (
             article["title"],
             article["url"],
@@ -85,6 +93,27 @@ def get_top_articles(limit: int = 10):
         ORDER BY score DESC
         LIMIT ?
     """, (limit,))
+
+    articles = [dict(row) for row in cursor.fetchall()]
+
+    connection.close()
+
+    return articles
+
+def get_recent_articles(hours: int = 3):
+    """Return articles first seen within the last N hours."""
+
+    connection = get_connection()
+    connection.row_factory = sqlite3.Row
+
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM articles
+        WHERE created_at >= datetime('now', ?)
+        ORDER BY score DESC
+    """, (f"-{hours} hours",))
 
     articles = [dict(row) for row in cursor.fetchall()]
 
