@@ -2,6 +2,12 @@ from collector import fetch_feed
 from processor import normalize_article, deduplicate_articles
 from sources import SOURCES
 from ranking import rank_articles
+from database import (
+    initialize_database,
+    save_articles,
+)
+
+initialize_database()
 
 def main():
     all_articles = []
@@ -27,6 +33,8 @@ def main():
     print(f"Unique articles: {len(unique_articles)}\n")
 
     ranked_articles = rank_articles(unique_articles)
+
+    save_articles(ranked_articles)
 
     print("\nTop articles:\n")
 
