@@ -1,67 +1,84 @@
-import sqlite3
-
 import pytest
-
+import os
 import database
 
 
 @pytest.fixture
-def test_database(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
+def test_database(monkeypatch):
+    test_database_url = os.getenv(
+        "TEST_DATABASE_URL"
+    )
 
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
+    if not test_database_url:
+        pytest.fail(
+            "TEST_DATABASE_URL is not configured."
+        )
+
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        test_database_url,
     )
 
     database.initialize_database()
 
-    return db_path
+    connection = database.get_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                TRUNCATE TABLE
+                    digest_articles,
+                    digests,
+                    articles
+                RESTART IDENTITY CASCADE
+            """)
+
+        connection.commit()
+
+    finally:
+        connection.close()
 
 
-def test_initialize_database(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
+def test_initialize_database(monkeypatch):
+    test_database_url = os.getenv(
+        "TEST_DATABASE_URL"
+    )
 
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
+    if not test_database_url:
+        pytest.fail(
+            "TEST_DATABASE_URL is not configured."
+        )
+
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        test_database_url,
     )
 
     database.initialize_database()
 
-    assert db_path.exists()
+    connection = database.get_connection()
 
-    connection = sqlite3.connect(db_path)
-    cursor = connection.cursor()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+            """)
 
-    cursor.execute("""
-        SELECT name
-        FROM sqlite_master
-        WHERE type = 'table'
-    """)
+            tables = {
+                row["table_name"]
+                for row in cursor.fetchall()
+            }
 
-    tables = {
-        row[0]
-        for row in cursor.fetchall()
-    }
-
-    connection.close()
+    finally:
+        connection.close()
 
     assert "articles" in tables
     assert "digests" in tables
+    assert "digest_articles" in tables
 
-def test_save_and_get_top_articles(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_save_and_get_top_articles(test_database):
 
     articles = [
         {
@@ -92,16 +109,7 @@ def test_save_and_get_top_articles(tmp_path, monkeypatch):
     assert result[0]["title"] == "High Score Article"
     assert result[1]["title"] == "Low Score Article"
 
-def test_get_top_articles_limit(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_top_articles_limit(test_database):
 
     articles = []
 
@@ -124,19 +132,7 @@ def test_get_top_articles_limit(tmp_path, monkeypatch):
     assert result[0]["score"] == 4
     assert result[1]["score"] == 3
 
-def test_save_articles_updates_existing_url(
-    tmp_path,
-    monkeypatch,
-):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_save_articles_updates_existing_url(test_database):
 
     original = {
         "title": "Original Title",
@@ -165,16 +161,7 @@ def test_save_articles_updates_existing_url(
     assert result[0]["summary"] == "Updated summary."
     assert result[0]["score"] == 20
 
-def test_digest_record(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_digest_record(test_database):
 
     assert database.get_last_digest_time() is None
 
@@ -204,16 +191,7 @@ def test_digest_record(tmp_path, monkeypatch):
 
     assert result is not None
 
-def test_get_recent_articles(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_recent_articles(test_database):
 
     connection = database.get_connection()
     cursor = connection.cursor()
@@ -229,7 +207,7 @@ def test_get_recent_articles(tmp_path, monkeypatch):
             score,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         "Recent Article",
         "https://example.com/recent",
@@ -252,7 +230,7 @@ def test_get_recent_articles(tmp_path, monkeypatch):
             score,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         "Old Article",
         "https://example.com/old",
@@ -272,16 +250,7 @@ def test_get_recent_articles(tmp_path, monkeypatch):
     assert len(result) == 1
     assert result[0]["title"] == "Recent Article"
 
-def test_get_articles_since(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_articles_since(test_database):
 
     connection = database.get_connection()
     cursor = connection.cursor()
@@ -320,7 +289,7 @@ def test_get_articles_since(tmp_path, monkeypatch):
             score,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """, articles)
 
     connection.commit()
@@ -333,16 +302,7 @@ def test_get_articles_since(tmp_path, monkeypatch):
     assert len(result) == 1
     assert result[0]["title"] == "New Article"
 
-def test_get_digests(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_digests(test_database):
 
     articles = [
         {
@@ -389,16 +349,7 @@ def test_get_digests(tmp_path, monkeypatch):
         == "Second Article"
     )
 
-def test_get_articles(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_articles(test_database):
 
     articles = [
         {
@@ -429,19 +380,7 @@ def test_get_articles(tmp_path, monkeypatch):
     assert result[0]["title"] == "Technology Article"
     assert result[1]["title"] == "Business Article"
 
-def test_get_articles_filters_by_category(
-    tmp_path,
-    monkeypatch,
-):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_articles_filters_by_category(test_database):
 
     articles = [
         {
@@ -473,19 +412,7 @@ def test_get_articles_filters_by_category(
     assert len(result) == 1
     assert result[0]["title"] == "Technology Article"
 
-def test_get_articles_filters_by_source(
-    tmp_path,
-    monkeypatch,
-):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_articles_filters_by_source(test_database):
 
     articles = [
         {
@@ -517,19 +444,7 @@ def test_get_articles_filters_by_source(
     assert len(result) == 1
     assert result[0]["title"] == "BBC Article"
 
-def test_get_article(
-    tmp_path,
-    monkeypatch,
-):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_article(test_database):
 
     articles = [
         {
@@ -556,19 +471,7 @@ def test_get_article(
     assert result["title"] == "Test Article"
     assert result["url"] == "https://example.com/test"
 
-def test_get_article_returns_none_for_missing_article(
-    tmp_path,
-    monkeypatch,
-):
-    db_path = tmp_path / "test.db"
-
-    monkeypatch.setattr(
-        database,
-        "DATABASE_PATH",
-        db_path,
-    )
-
-    database.initialize_database()
+def test_get_article_returns_none_for_missing_article(test_database):
 
     result = database.get_article(999)
 

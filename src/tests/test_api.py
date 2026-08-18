@@ -11,18 +11,38 @@ import pytest
 
 
 @pytest.fixture
-def test_database(tmp_path, monkeypatch):
-    db_path = tmp_path / "test.db"
+def test_database(monkeypatch):
+    test_database_url = (
+        "postgresql://test_user:test_password"
+        "@localhost:5433/news_app_test"
+    )
 
     monkeypatch.setattr(
         database,
-        "DATABASE_PATH",
-        db_path,
+        "DATABASE_URL",
+        test_database_url,
     )
 
     database.initialize_database()
 
-    return db_path
+    connection = database.get_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                TRUNCATE TABLE
+                    digest_articles,
+                    digests,
+                    articles
+                RESTART IDENTITY CASCADE
+            """)
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    return test_database_url
 
 
 def test_root():
