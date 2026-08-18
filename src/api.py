@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from database import (
     initialize_database,
@@ -17,11 +18,17 @@ app = FastAPI(
     description="API for the personal news digest.",
     version="1.0.0",
 )
+frontend_url = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173",
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        frontend_url,
     ],
     allow_credentials=True,
     allow_methods=["*"],
