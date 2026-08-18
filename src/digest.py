@@ -3,28 +3,13 @@ import re
 
 MINIMUM_DIGEST_SCORE = 12
 
-# ------------------------------------------------------------
-# CATEGORY DISPLAY
-# ------------------------------------------------------------
-#
-# Internal category names are simple strings:
-#
-#     taiwan
-#     world
-#     business
-#     programming
-#     technology
-#
-# The digest can display nicer labels/icons.
-# ------------------------------------------------------------
-
-CATEGORY_DISPLAY = {
-    "taiwan": "🇹🇼 TAIWAN",
-    "world": "🌎 WORLD",
-    "business": "💰 BUSINESS",
-    "programming": "💻 PROGRAMMING",
-    "technology": "⚙️ TECHNOLOGY",
-}
+CATEGORY_ORDER = [
+    "taiwan",
+    "world",
+    "business",
+    "programming",
+    "technology",
+]
 
 
 def clean_summary(summary: str) -> str:
@@ -40,21 +25,6 @@ def clean_summary(summary: str) -> str:
 
     return summary.strip()
 
-def format_article(article: dict) -> str:
-    """Format one article for the digest."""
-
-    title = article["title"]
-    summary = clean_summary(article["summary"])
-    url = article["url"]
-
-    if not summary:
-        summary = "No summary available."
-
-    return (
-        f"### {title}\n\n"
-        f"{summary}\n\n"
-        f"**Read original →** {url}\n"
-    )
 
 def group_by_category(articles: list[dict]) -> dict:
     """Group articles according to their category."""
@@ -62,7 +32,6 @@ def group_by_category(articles: list[dict]) -> dict:
     grouped = {}
 
     for article in articles:
-
         category = article["category"]
 
         if category not in grouped:
@@ -72,6 +41,7 @@ def group_by_category(articles: list[dict]) -> dict:
 
     return grouped
 
+
 def filter_important_articles(
     articles: list[dict],
 ) -> list[dict]:
@@ -80,56 +50,42 @@ def filter_important_articles(
     return [
         article
         for article in articles
-        if article["score"]["total"] >= MINIMUM_DIGEST_SCORE
+        if article["score"] >= MINIMUM_DIGEST_SCORE
     ]
+
 
 def generate_digest(
     articles: list[dict],
     articles_per_category: int = 3,
-) -> str:
-    """Generate a readable news digest."""
+) -> dict:
+    """Generate structured digest data for the client."""
 
     grouped = group_by_category(articles)
 
-    lines = []
+    digest_articles = []
 
-    lines.append("=" * 50)
-    lines.append("YOUR NEWS DIGEST")
-    lines.append("=" * 50)
-    lines.append("")
-
-    # Display categories in this order.
-    category_order = [
-        "taiwan",
-        "world",
-        "business",
-        "programming",
-        "technology",
-    ]
-
-    for category in category_order:
+    for category in CATEGORY_ORDER:
 
         category_articles = grouped.get(category, [])
-
-        if not category_articles:
-            continue
-
-        lines.append(
-            CATEGORY_DISPLAY.get(
-                category,
-                category.upper(),
-            )
-        )
-
-        lines.append("")
 
         for article in category_articles[
             :articles_per_category
         ]:
-            lines.append(
-                format_article(article)
-            )
-            lines.append("-" * 50)
-            lines.append("")
+            digest_articles.append({
+                "title": article["title"],
+                "summary": clean_summary(
+                    article.get("summary", "")
+                ) or "No summary available.",
+                "why_it_matters": clean_summary(
+                    article.get("why_it_matters", "")
+                ),
+                "url": article["url"],
+                "source": article["source"],
+                "category": article["category"],
+                "published": article.get("published"),
+                "score": article["score"],
+            })
 
-    return "\n".join(lines)
+    return {
+        "articles": digest_articles,
+    }

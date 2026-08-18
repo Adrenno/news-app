@@ -176,6 +176,16 @@ def source_score(source: str) -> int:
 # ------------------------------------------------------------
 
 def calculate_score(article: dict) -> dict:
+    """
+    Calculate the ranking score and its individual components.
+
+    Returns a dictionary containing:
+        total
+        recency
+        category
+        keywords
+        source
+    """
 
     recency = recency_score(article["published"])
     category = category_score(article["category"])
@@ -203,6 +213,7 @@ def calculate_score(article: dict) -> dict:
 # ------------------------------------------------------------
 
 def rank_articles(articles: list[dict]) -> list[dict]:
+    """Calculate scores and sort articles by importance."""
 
     ranked_articles = []
 
@@ -212,13 +223,23 @@ def rank_articles(articles: list[dict]) -> list[dict]:
 
         ranked_articles.append({
             **article,
-            "score": scores,
+
+            # Final numeric ranking score.
+            "score": scores["total"],
+
+            # Detailed breakdown used for debugging
+            # and tuning the ranking system.
+            "ranking_details": {
+                "recency": scores["recency"],
+                "category": scores["category"],
+                "keywords": scores["keywords"],
+                "source": scores["source"],
+            },
         })
 
     ranked_articles.sort(
-        key=lambda article: article["score"]["total"],
+        key=lambda article: article["score"],
         reverse=True,
     )
 
     return ranked_articles
-

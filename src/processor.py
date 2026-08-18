@@ -49,3 +49,23 @@ def deduplicate_articles(articles: list[dict]) -> list[dict]:
         unique_articles.append(article)
 
     return unique_articles
+
+def create_article(
+    title: str,
+    url: str,
+    published: str,
+    summary: str,
+    source: str,
+    category: str,
+) -> dict:
+    """Create an article with the standard structure."""
+
+    return {
+        "title": clean_text(title),
+        "url": url.strip(),
+        "published": published,
+        "summary": clean_text(summary),
+        "source": source,
+        "category": category,
+        "score": 0.0,
+    }
